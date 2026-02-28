@@ -1,10 +1,20 @@
 import { NextResponse } from 'next/server'
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY
-
 export async function POST(request) {
+  const GROQ_API_KEY = process.env.GROQ_API_KEY
+  
   try {
     const { award, userProfile, customPrompt } = await request.json()
+
+    // Check if API key exists
+    if (!GROQ_API_KEY) {
+      console.log('GROQ_API_KEY is not set')
+      return NextResponse.json({ 
+        content: generateFallbackContent(award, userProfile),
+        source: 'fallback',
+        error: 'API key not configured'
+      })
+    }
 
     const systemPrompt = `You are an expert at writing compelling jury application submissions for design awards. 
 Your task is to help the user craft personalized, professional responses for their jury application.
@@ -38,52 +48,52 @@ Guidelines:
 5. My commitment to design excellence and the industry
 6. A professional closing`
 
-    // Use Groq API (fast, reliable, free tier)
-    let content = null
-    
-    try {
-      const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'llama-3.1-70b-versatile',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-          ],
-          max_tokens: 1500,
-          temperature: 0.7,
-        }),
-      })
+    // Call Groq API
+    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-70b-versatile',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        max_tokens: 1500,
+        temperature: 0.7,
+      }),
+    })
 
-      if (groqResponse.ok) {
-        const data = await groqResponse.json()
-        content = data.choices?.[0]?.message?.content
-      } else {
-        const errorText = await groqResponse.text()
-        console.log('Groq API error:', groqResponse.status, errorText)
+    if (groqResponse.ok) {
+      const data = await groqResponse.json()
+      const content = data.choices?.[0]?.message?.content
+      
+      if (content) {
+        return NextResponse.json({ 
+          content,
+          source: 'groq-ai'
+        })
       }
-    } catch (e) {
-      console.log('Groq API exception:', e.message)
     }
-
-    // Fallback to template if all APIs fail
-    if (!content) {
-      content = generateFallbackContent(award, userProfile)
-    }
-
+    
+    // Log error details
+    const errorText = await groqResponse.text()
+    console.log('Groq API failed:', groqResponse.status, errorText)
+    
+    // Return fallback with error info
     return NextResponse.json({ 
-      content,
-      source: content ? 'ai' : 'fallback'
+      content: generateFallbackContent(award, userProfile),
+      source: 'fallback',
+      error: `Groq API error: ${groqResponse.status}`
     })
 
   } catch (error) {
     console.error('Generation error:', error)
     return NextResponse.json({ 
       content: 'Failed to generate content. Please try again.',
+      source: 'error',
       error: error.message
     }, { status: 500 })
   }
