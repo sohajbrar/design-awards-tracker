@@ -56,7 +56,7 @@ Guidelines:
         'Authorization': `Bearer ${GROQ_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'llama-3.1-70b-versatile',
+        model: 'llama3-70b-8192',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
@@ -66,27 +66,37 @@ Guidelines:
       }),
     })
 
+    const responseText = await groqResponse.text()
+    
     if (groqResponse.ok) {
-      const data = await groqResponse.json()
-      const content = data.choices?.[0]?.message?.content
-      
-      if (content) {
-        return NextResponse.json({ 
-          content,
-          source: 'groq-ai'
-        })
+      try {
+        const data = JSON.parse(responseText)
+        const content = data.choices?.[0]?.message?.content
+        
+        if (content) {
+          return NextResponse.json({ 
+            content,
+            source: 'groq-ai'
+          })
+        }
+      } catch (parseError) {
+        console.log('Parse error:', parseError.message)
       }
     }
     
     // Log error details
-    const errorText = await groqResponse.text()
-    console.log('Groq API failed:', groqResponse.status, errorText)
+    console.log('Groq API failed:', groqResponse.status, responseText)
     
-    // Return fallback with error info
+    // Return fallback with detailed error info
     return NextResponse.json({ 
       content: generateFallbackContent(award, userProfile),
       source: 'fallback',
-      error: `Groq API error: ${groqResponse.status}`
+      error: `Groq API error ${groqResponse.status}: ${responseText.substring(0, 200)}`,
+      debug: {
+        status: groqResponse.status,
+        hasKey: !!GROQ_API_KEY,
+        keyPrefix: GROQ_API_KEY ? GROQ_API_KEY.substring(0, 10) : 'none'
+      }
     })
 
   } catch (error) {

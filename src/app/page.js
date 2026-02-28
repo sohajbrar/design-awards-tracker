@@ -467,6 +467,8 @@ function AIPanel({ isOpen, onClose, award, drafts, onSaveDraft, onDeleteDraft, u
       
       if (data.error) {
         console.log('API Error:', data.error)
+        console.log('Debug info:', data.debug)
+        alert(`Debug: Source=${data.source}, Error=${data.error}, HasKey=${data.debug?.hasKey}, KeyPrefix=${data.debug?.keyPrefix}`)
       }
       
       if (!response.ok) {
