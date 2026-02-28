@@ -442,10 +442,13 @@ function AIPanel({ isOpen, onClose, award, drafts, onSaveDraft, onDeleteDraft, u
     }
   }, [award, drafts])
 
+  const [aiSource, setAiSource] = useState(null)
+
   const generateApplication = async () => {
     if (!award) return
     
     setIsGenerating(true)
+    setAiSource(null)
     try {
       const response = await fetch('/api/generate', {
         method: 'POST',
@@ -457,12 +460,17 @@ function AIPanel({ isOpen, onClose, award, drafts, onSaveDraft, onDeleteDraft, u
         })
       })
 
-      if (response.ok) {
-        const data = await response.json()
-        setGeneratedContent(data.content)
-        setEditedContent(data.content)
-      } else {
-        throw new Error('API request failed')
+      const data = await response.json()
+      setGeneratedContent(data.content)
+      setEditedContent(data.content)
+      setAiSource(data.source || 'unknown')
+      
+      if (data.error) {
+        console.log('API Error:', data.error)
+      }
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'API request failed')
       }
     } catch (error) {
       console.error('Generation failed:', error)
@@ -612,9 +620,20 @@ function AIPanel({ isOpen, onClose, award, drafts, onSaveDraft, onDeleteDraft, u
               {/* Generated Content */}
               {editedContent && (
                 <div className="space-y-3">
-                  <label className="text-xs font-medium text-[var(--muted)] uppercase tracking-wider block">
-                    Generated Application (editable)
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-[var(--muted)] uppercase tracking-wider">
+                      Generated Application (editable)
+                    </label>
+                    {aiSource && (
+                      <span className={`text-xs px-2 py-1 rounded ${
+                        aiSource === 'groq-ai' 
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
+                          : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                      }`}>
+                        {aiSource === 'groq-ai' ? '✨ AI Generated' : '📝 Template'}
+                      </span>
+                    )}
+                  </div>
                   <textarea
                     value={editedContent}
                     onChange={(e) => setEditedContent(e.target.value)}
