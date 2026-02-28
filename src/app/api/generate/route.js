@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const LLAMA_API_KEY = process.env.LLAMA_API_KEY || 'LLM|2485278665220395|qfkTtzlukIpj9k7u2rZdiRn4YvI'
+const LLAMA_API_KEY = process.env.LLAMA_API_KEY || 'LLM|917743297308800|Z5PUiq5Zoch54Ppr0X6oKo5A8lE'
 
 export async function POST(request) {
   try {
@@ -41,16 +41,16 @@ Guidelines:
     // Try multiple AI providers in order
     let content = null
     
-    // Try Groq first (free, fast, supports Llama)
+    // Try Llama API first (llama-api.com)
     try {
-      const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      const llamaResponse = await fetch('https://api.llama-api.com/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.GROQ_API_KEY || 'gsk_placeholder'}`,
+          'Authorization': `Bearer ${LLAMA_API_KEY}`,
         },
         body: JSON.stringify({
-          model: 'llama-3.1-70b-versatile',
+          model: 'llama3.1-70b',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt }
@@ -60,22 +60,55 @@ Guidelines:
         }),
       })
 
-      if (groqResponse.ok) {
-        const data = await groqResponse.json()
+      if (llamaResponse.ok) {
+        const data = await llamaResponse.json()
         content = data.choices?.[0]?.message?.content
+        console.log('Llama API success')
+      } else {
+        console.log('Llama API failed:', llamaResponse.status, await llamaResponse.text())
       }
     } catch (e) {
-      console.log('Groq failed:', e.message)
+      console.log('Llama API error:', e.message)
     }
 
-    // Try Together AI
-    if (!content) {
+    // Try Groq as backup (free, fast, supports Llama)
+    if (!content && process.env.GROQ_API_KEY) {
+      try {
+        const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: 'llama-3.1-70b-versatile',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ],
+            max_tokens: 1500,
+            temperature: 0.7,
+          }),
+        })
+
+        if (groqResponse.ok) {
+          const data = await groqResponse.json()
+          content = data.choices?.[0]?.message?.content
+          console.log('Groq success')
+        }
+      } catch (e) {
+        console.log('Groq failed:', e.message)
+      }
+    }
+
+    // Try Together AI as backup
+    if (!content && process.env.TOGETHER_API_KEY) {
       try {
         const togetherResponse = await fetch('https://api.together.xyz/v1/chat/completions', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.TOGETHER_API_KEY || LLAMA_API_KEY}`,
+            'Authorization': `Bearer ${process.env.TOGETHER_API_KEY}`,
           },
           body: JSON.stringify({
             model: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
@@ -91,39 +124,10 @@ Guidelines:
         if (togetherResponse.ok) {
           const data = await togetherResponse.json()
           content = data.choices?.[0]?.message?.content
+          console.log('Together success')
         }
       } catch (e) {
         console.log('Together failed:', e.message)
-      }
-    }
-
-    // Try OpenRouter
-    if (!content) {
-      try {
-        const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY || LLAMA_API_KEY}`,
-            'HTTP-Referer': 'https://design-awards-tracker.vercel.app',
-          },
-          body: JSON.stringify({
-            model: 'meta-llama/llama-3.1-70b-instruct:free',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt }
-            ],
-            max_tokens: 1500,
-            temperature: 0.7,
-          }),
-        })
-
-        if (openRouterResponse.ok) {
-          const data = await openRouterResponse.json()
-          content = data.choices?.[0]?.message?.content
-        }
-      } catch (e) {
-        console.log('OpenRouter failed:', e.message)
       }
     }
 
