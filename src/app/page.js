@@ -447,135 +447,29 @@ function AIPanel({ isOpen, onClose, award, drafts, onSaveDraft, onDeleteDraft, u
     
     setIsGenerating(true)
     try {
-      const systemPrompt = `You are an expert at writing compelling jury application submissions for design awards. 
-Your task is to help the user craft personalized, professional responses for their jury application.
-
-Award Details:
-- Name: ${award.name}
-- Category: ${award.category}
-- Type: ${award.type}
-- Description: ${award.description}
-
-User Profile:
-${userProfile.name ? `- Name: ${userProfile.name}` : ''}
-${userProfile.years ? `- Years of Experience: ${userProfile.years}` : ''}
-${userProfile.expertise ? `- Expertise: ${userProfile.expertise}` : ''}
-${userProfile.notableWork ? `- Notable Work: ${userProfile.notableWork}` : ''}
-
-Guidelines:
-1. Be specific and authentic - avoid generic statements
-2. Highlight relevant experience that matches the award's focus
-3. Show passion for design excellence and industry contribution
-4. Keep responses concise but impactful
-5. Tailor the tone to match the prestige level of the award
-6. Include specific examples and achievements where relevant`
-
-      const userPrompt = customPrompt || `Write a compelling jury application for ${award.name}. Include:
-1. A brief introduction about my design expertise
-2. Why I'm qualified to judge this award
-3. What unique perspective I would bring to the jury
-4. My commitment to design excellence and the industry`
-
-      const response = await fetch('https://api.llama-api.com/chat/completions', {
+      const response = await fetch('/api/generate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer LLM|2485278665220395|qfkTtzlukIpj9k7u2rZdiRn4YvI',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'llama3.1-70b',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-          ],
-          max_tokens: 1500,
-          temperature: 0.7,
-        }),
+          award,
+          userProfile,
+          customPrompt: customPrompt || null
+        })
       })
 
       if (response.ok) {
         const data = await response.json()
-        setGeneratedContent(data.choices[0].message.content)
-        setEditedContent(data.choices[0].message.content)
+        setGeneratedContent(data.content)
+        setEditedContent(data.content)
       } else {
-        // Fallback to template
-        const fallback = generateFallbackContent(award, userProfile)
-        setGeneratedContent(fallback)
-        setEditedContent(fallback)
+        throw new Error('API request failed')
       }
     } catch (error) {
       console.error('Generation failed:', error)
-      const fallback = generateFallbackContent(award, userProfile)
-      setGeneratedContent(fallback)
-      setEditedContent(fallback)
+      setGeneratedContent('Failed to generate. Please try again.')
+      setEditedContent('')
     }
     setIsGenerating(false)
-  }
-
-  const generateFallbackContent = (award, profile) => {
-    const name = profile?.name || 'Design Professional'
-    const years = profile?.years || '10+'
-    const expertise = profile?.expertise || 'product design, UX design, and design leadership'
-    
-    const templates = {
-      'judging': `Dear ${award.name} Selection Committee,
-
-I am excited to apply for the jury position for the ${award.name}.
-
-With ${years} years of experience in ${expertise}, I have developed a deep understanding of what constitutes exceptional ${award.category.toLowerCase()} work. My career has spanned diverse projects across various industries, giving me a well-rounded perspective on design excellence.
-
-**Why I'm Qualified:**
-• Extensive experience evaluating and critiquing design work
-• Track record of mentoring designers and providing constructive feedback  
-• Deep knowledge of ${award.category.toLowerCase()} best practices and emerging trends
-• Commitment to diversity and inclusion in design recognition
-
-**My Unique Perspective:**
-I believe great ${award.category.toLowerCase()} should not only be aesthetically compelling but also solve real problems and create meaningful impact. I would bring this holistic evaluation approach to the jury.
-
-**Commitment:**
-I am dedicated to giving each submission the thorough consideration it deserves and contributing to discussions that elevate our industry's standards.
-
-I would be honored to serve on the ${award.name} jury and help recognize outstanding work in our field.
-
-Best regards,
-${name}`,
-
-      'speaking': `Dear ${award.name} Organizing Committee,
-
-I am writing to express my interest in speaking at ${award.name}.
-
-**Proposed Topic:** The Future of ${award.category} - Lessons from ${years} Years in Design
-
-**Abstract:**
-Drawing from my ${years} years of experience in ${expertise}, I would share practical insights and actionable strategies that attendees can apply immediately.
-
-**Why This Talk:**
-• Addresses current industry challenges
-• Based on real-world experience and case studies
-• Interactive elements to engage the audience
-
-**Speaker Bio:**
-${name} is a design leader with ${years} years of experience in ${expertise}.
-
-I would be thrilled to contribute to ${award.name} and share knowledge with the design community.
-
-Best regards,
-${name}`,
-
-      'event': `Dear ${award.name} Team,
-
-I am interested in participating in ${award.name}.
-
-With my background in ${expertise} spanning ${years} years, I believe I can contribute meaningfully to this event. I am passionate about ${award.category.toLowerCase()} and committed to advancing our industry.
-
-I look forward to the opportunity to connect with fellow professionals and contribute to the ${award.name} community.
-
-Best regards,
-${name}`
-    }
-
-    return templates[award.type] || templates['judging']
   }
 
   const handleSave = () => {
