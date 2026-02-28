@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const LLAMA_API_KEY = process.env.LLAMA_API_KEY || 'LLM|917743297308800|Z5PUiq5Zoch54Ppr0X6oKo5A8lE'
+const GROQ_API_KEY = process.env.GROQ_API_KEY
 
 export async function POST(request) {
   try {
@@ -38,126 +38,36 @@ Guidelines:
 5. My commitment to design excellence and the industry
 6. A professional closing`
 
-    // Try multiple AI providers in order
+    // Use Groq API (fast, reliable, free tier)
     let content = null
-    let apiUsed = 'none'
     
-    // Try Hugging Face Inference API (free)
     try {
-      const hfResponse = await fetch('https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct', {
+      const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
         },
         body: JSON.stringify({
-          inputs: `<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n${systemPrompt}<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n${userPrompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n`,
-          parameters: {
-            max_new_tokens: 1500,
-            temperature: 0.7,
-            return_full_text: false,
-          },
+          model: 'llama-3.1-70b-versatile',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          max_tokens: 1500,
+          temperature: 0.7,
         }),
       })
 
-      if (hfResponse.ok) {
-        const data = await hfResponse.json()
-        if (data[0]?.generated_text) {
-          content = data[0].generated_text
-          apiUsed = 'huggingface'
-        }
+      if (groqResponse.ok) {
+        const data = await groqResponse.json()
+        content = data.choices?.[0]?.message?.content
+      } else {
+        const errorText = await groqResponse.text()
+        console.log('Groq API error:', groqResponse.status, errorText)
       }
     } catch (e) {
-      console.log('HuggingFace error:', e.message)
-    }
-
-    // Try Cerebras (free tier)
-    if (!content) {
-      try {
-        const cerebrasResponse = await fetch('https://api.cerebras.ai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.CEREBRAS_API_KEY || 'demo'}`,
-          },
-          body: JSON.stringify({
-            model: 'llama3.1-8b',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt }
-            ],
-            max_tokens: 1500,
-            temperature: 0.7,
-          }),
-        })
-
-        if (cerebrasResponse.ok) {
-          const data = await cerebrasResponse.json()
-          content = data.choices?.[0]?.message?.content
-          apiUsed = 'cerebras'
-        }
-      } catch (e) {
-        console.log('Cerebras error:', e.message)
-      }
-    }
-
-    // Try Llama API (llama-api.com)
-    if (!content) {
-      try {
-        const llamaResponse = await fetch('https://api.llama-api.com/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${LLAMA_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: 'llama3.1-70b',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt }
-            ],
-            max_tokens: 1500,
-            temperature: 0.7,
-          }),
-        })
-
-        if (llamaResponse.ok) {
-          const data = await llamaResponse.json()
-          content = data.choices?.[0]?.message?.content
-          apiUsed = 'llama-api'
-        }
-      } catch (e) {
-        console.log('Llama API error:', e.message)
-      }
-    }
-
-    // Try Groq as backup
-    if (!content && process.env.GROQ_API_KEY) {
-      try {
-        const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: 'llama-3.1-70b-versatile',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt }
-            ],
-            max_tokens: 1500,
-            temperature: 0.7,
-          }),
-        })
-
-        if (groqResponse.ok) {
-          const data = await groqResponse.json()
-          content = data.choices?.[0]?.message?.content
-          apiUsed = 'groq'
-        }
-      } catch (e) {
-        console.log('Groq error:', e.message)
-      }
+      console.log('Groq API exception:', e.message)
     }
 
     // Fallback to template if all APIs fail
