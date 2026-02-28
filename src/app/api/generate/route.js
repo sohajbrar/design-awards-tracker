@@ -12,7 +12,8 @@ export async function POST(request) {
       return NextResponse.json({ 
         content: generateFallbackContent(award, userProfile),
         source: 'fallback',
-        error: 'API key not configured'
+        error: 'API key not configured',
+        debug: { hasKey: false, keyPrefix: 'none' }
       })
     }
 
@@ -76,7 +77,8 @@ Guidelines:
         if (content) {
           return NextResponse.json({ 
             content,
-            source: 'groq-ai'
+            source: 'groq-ai',
+            debug: { hasKey: true, keyPrefix: GROQ_API_KEY.substring(0, 10) }
           })
         }
       } catch (parseError) {

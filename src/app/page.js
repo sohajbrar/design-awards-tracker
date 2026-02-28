@@ -465,11 +465,10 @@ function AIPanel({ isOpen, onClose, award, drafts, onSaveDraft, onDeleteDraft, u
       setEditedContent(data.content)
       setAiSource(data.source || 'unknown')
       
-      if (data.error) {
-        console.log('API Error:', data.error)
-        console.log('Debug info:', data.debug)
-        alert(`Debug: Source=${data.source}, Error=${data.error}, HasKey=${data.debug?.hasKey}, KeyPrefix=${data.debug?.keyPrefix}`)
-      }
+      // Always show debug alert
+      alert(`DEBUG INFO:\nSource: ${data.source}\nError: ${data.error || 'none'}\nHasKey: ${data.debug?.hasKey}\nKeyPrefix: ${data.debug?.keyPrefix || 'N/A'}`)
+      
+      console.log('API Response:', data)
       
       if (!response.ok) {
         throw new Error(data.error || 'API request failed')
